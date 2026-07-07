@@ -1,167 +1,116 @@
 # Autonomous Document Generation Agent
 
-An AI-powered autonomous document generation system built with **Python**, **FastAPI**, and **Groq LLM**.
+A FastAPI service that turns a natural-language request into an autonomous task plan,
+executes the plan with Groq, quality-checks the result, and produces a formatted Word
+document. The generated task list is returned in the API response so the agent's
+decisions are visible and demo-friendly.
 
-The application accepts a natural language request, creates an execution plan, generates professional business content, validates the output, and produces a Microsoft Word document.
+## How it works
 
----
-
-## Features
-
-- Autonomous task planning
-- Multi-step execution workflow
-- AI-powered content generation using Groq
-- Word document generation (.docx)
-- Reflection and validation before final output
-- REST API using FastAPI
-- Modular and scalable architecture
-
----
-
-## Tech Stack
-
-- Python 3.12
-- FastAPI
-- Groq API
-- python-docx
-- Pydantic
-- Uvicorn
-- python-dotenv
-
----
-
-## Project Structure
-
-```
-app/
-├── api/
-├── agents/
-├── config/
-├── core/
-├── llm/
-├── orchestrator/
-├── schemas/
-├── services/
-├── tools/
-└── main.py
-
-output/
-templates/
-tests/
+```text
+POST /agent
+    -> Planner: infer document type, assumptions, sections, and dependencies
+    -> Executor: write each planned section with prior-step context
+    -> Reflection: deterministic checks + independent LLM review
+    -> Recovery: one bounded revision pass when reflection fails
+    -> Document tool: render and save DOCX
+    -> JSON response: plan, review result, summary, and download URL
 ```
 
----
+The mandatory engineering improvement is **reflection/self-check with recovery**.
+Pure generation can produce incomplete or inconsistent documents. This workflow checks
+length, structure, empty/duplicate sections, readability, request coverage, consistency,
+and unsupported claims. A failed review triggers one revision and a second review; a
+second failure returns a controlled error instead of silently publishing poor output.
+Transient Groq failures also use bounded exponential-backoff retries.
 
-## Workflow
+## Run locally
 
-```
-User Request
-      │
-      ▼
-Planner Agent
-      │
-      ▼
-Executor Agent
-      │
-      ▼
-Document Tool
-      │
-      ▼
-Reflection Agent
-      │
-      ▼
-Generated Word Document
-```
-
----
-
-## API Endpoint
-
-### POST `/agent`
-
-Request
-
-```json
-{
-  "request": "Create a project proposal for an Inventory Management System."
-}
-```
-
-Response
-
-```json
-{
-  "status": "completed",
-  "summary": "Document generated successfully.",
-  "document_path": "output/proposal.docx"
-}
-```
-
----
-
-## Getting Started
-
-### Clone Repository
-
-```bash
-git clone <repository-url>
-cd autonomous-document-agent
-```
-
-### Create Virtual Environment
+Python 3.11+ is recommended.
 
 ```bash
 python -m venv .venv
-```
-
-### Activate Environment
-
-Windows
-
-```bash
-.venv\Scripts\activate
-```
-
-Linux / macOS
-
-```bash
-source .venv/bin/activate
-```
-
-### Install Dependencies
-
-```bash
+# Windows: .venv\Scripts\activate
+# Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Configure Environment
-
-Create a `.env` file.
-
-```env
-GROQ_API_KEY=your_groq_api_key
-MODEL_NAME=llama-3.3-70b-versatile
-```
-
-### Run the Application
+Copy `.env.example` to `.env`, set a free Groq API key, then run:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
----
+Open `http://127.0.0.1:8000/docs` for the interactive API. Health is available at
+`GET /health`; generated documents can be downloaded from the `document_url` returned
+by `POST /agent`.
 
-## Future Enhancements
+Example request:
 
-- Conversation memory
-- Template selection
-- Multiple document formats
-- RAG integration
-- Tool calling
-- Persistent storage
+```bash
+curl -X POST http://127.0.0.1:8000/agent \
+  -H "Content-Type: application/json" \
+  -d '{"request":"Create a project proposal for an inventory management system for a mid-sized retail company."}'
+```
 
----
+## Required demo inputs
 
-## Author
+Standard business request:
 
-**Ramkrushna Sathe**
+```json
+{
+  "request": "Create a project proposal for an inventory management system for a mid-sized retail company. Include scope, timeline, budget categories, risks, and success metrics."
+}
+```
+
+Complex request with missing and conflicting details:
+
+```json
+{
+  "request": "Create a technical project plan for moving our 12-person support team from spreadsheets to a customer ticketing platform. Launch quickly but avoid operational disruption; no vendor, budget, deadline, or migration approach has been selected. Decide sensible assumptions, phases, responsibilities, risks, training, rollback, and measurable acceptance criteria."
+}
+```
+
+The planner does not hide ambiguity: its assumptions appear in both the execution plan
+and the generated document.
+
+## Tests
+
+Tests use a deterministic fake LLM, so they consume no API credits and verify planning,
+orchestration, validation, DOCX creation, request guardrails, and document download.
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+## Architecture and tradeoff
+
+The code uses focused components under `app/agents`, `app/tools`, and
+`app/orchestrator`, with the LLM client injected for testing. A single orchestrated
+agent workflow was chosen over a multi-agent framework: it is easy to explain and
+debug within the assignment's 60-minute constraint, while the planner/executor/reviewer
+boundaries remain replaceable. The tradeoff is less dynamic delegation in exchange for
+predictable execution, lower latency, and simpler failure handling.
+
+One useful debugging story for the video: Groq's OpenAI-compatible JSON mode accepts
+`{"type":"json_object"}`, but not an arbitrary `schema` member. The schema is therefore
+included in the prompt and validated again with Pydantic. This avoids API-level 400
+errors while retaining strict application-side contracts.
+
+## Project layout
+
+```text
+app/
+  agents/        planner, executor, reflection
+  api/           routes and DOCX download
+  config/        environment settings
+  core/          errors and structured logging
+  llm/           async Groq client with retry
+  orchestrator/  end-to-end workflow and recovery
+  schemas/       Pydantic API/agent contracts
+  tools/         templates, validation, DOCX formatting
+templates/       proposal and requirements structures
+tests/           credit-free workflow and API tests
+output/          generated documents
+```

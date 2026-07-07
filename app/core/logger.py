@@ -8,7 +8,7 @@ Responsibility: Configure logging handlers, formatters, and output.
 import json
 import logging
 import logging.handlers
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.config import get_settings
@@ -27,7 +27,7 @@ class JsonFormatter(logging.Formatter):
             JSON formatted log line
         """
         log_data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

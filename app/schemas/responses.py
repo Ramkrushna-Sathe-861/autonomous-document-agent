@@ -26,6 +26,11 @@ class ExecutionPlan(BaseModel):
     """Structured execution plan for document generation."""
 
     document_type: str = Field(..., description="Type of document to generate")
+    document_title: str = Field(..., description="Title of the final document")
+    assumptions: list[str] = Field(
+        default_factory=list,
+        description="Reasonable assumptions made when the request is incomplete",
+    )
     total_steps: int = Field(..., description="Total number of execution steps")
     steps: list[ExecutionStep] = Field(..., description="List of execution steps")
     estimated_sections: int = Field(
@@ -59,6 +64,9 @@ class ReflectionResult(BaseModel):
     confidence_score: float = Field(
         ..., ge=0.0, le=1.0, description="Confidence in validation (0-1)"
     )
+    revised: bool = Field(
+        default=False, description="Whether a revision pass was performed"
+    )
 
 
 class DocumentResponse(BaseModel):
@@ -68,6 +76,7 @@ class DocumentResponse(BaseModel):
     execution_plan: ExecutionPlan = Field(..., description="Executed planning")
     summary: str = Field(..., description="Summary of generated document")
     document_path: str = Field(..., description="Path to generated DOCX file")
+    document_url: str = Field(..., description="API URL for downloading the DOCX file")
     reflection_result: ReflectionResult = Field(
         ..., description="Reflection agent validation result"
     )

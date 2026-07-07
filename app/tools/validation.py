@@ -7,7 +7,7 @@ Responsibility: Check for duplicates, empty content, length requirements, sectio
 
 import logging
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from app.config import get_settings
 from app.core.exceptions import ValidationError
@@ -190,7 +190,7 @@ class ValidationTool:
 
     def validate_all(
         self, document_content: str, sections: list[dict]
-    ) -> dict[str, any]:
+    ) -> dict[str, Any]:
         """
         Run all validation checks.
 
@@ -226,6 +226,7 @@ class ValidationTool:
         valid, empty_sections = self.validate_no_empty_sections(sections)
         results["checks"]["no_empty_sections"] = valid
         if not valid:
+            results["is_valid"] = False
             results["errors"].extend(
                 [f"Empty section: {s}" for s in empty_sections]
             )
@@ -234,6 +235,7 @@ class ValidationTool:
         valid, duplicates = self.validate_no_duplicates(sections)
         results["checks"]["no_duplicates"] = valid
         if not valid:
+            results["is_valid"] = False
             results["errors"].extend(
                 [f"Duplicate sections: {d}" for d in duplicates]
             )
@@ -244,6 +246,7 @@ class ValidationTool:
             valid, error = self.validate_section_structure(section)
             if not valid:
                 structure_valid = False
+                results["is_valid"] = False
                 results["errors"].append(error)
         results["checks"]["section_structure"] = structure_valid
 

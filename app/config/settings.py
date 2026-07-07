@@ -7,7 +7,11 @@ Responsibility: Load, validate, and provide access to all application settings.
 
 from pathlib import Path
 
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DEFAULT_GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 
 class Settings(BaseSettings):
@@ -21,10 +25,10 @@ class Settings(BaseSettings):
     api_reload: bool = False
 
     # Groq LLM Configuration
-    groq_api_key: str
-    groq_model: str = "mixtral-8x7b-32768"
+    groq_api_key: str = Field(default="", repr=False)
+    groq_model: str = DEFAULT_GROQ_MODEL
     groq_timeout: int = 60
-    groq_max_retries: int = 3
+    groq_max_retries: int = 5
 
     # Paths Configuration
     base_dir: Path = Path(__file__).parent.parent.parent
@@ -40,9 +44,9 @@ class Settings(BaseSettings):
     log_backup_count: int = 5
 
     # Agent Configuration
-    planner_model: str = "mixtral-8x7b-32768"
-    executor_model: str = "mixtral-8x7b-32768"
-    reflection_model: str = "mixtral-8x7b-32768"
+    planner_model: str = DEFAULT_GROQ_MODEL
+    executor_model: str = DEFAULT_GROQ_MODEL
+    reflection_model: str = DEFAULT_GROQ_MODEL
     max_planning_retries: int = 2
     max_execution_retries: int = 2
 
@@ -57,12 +61,12 @@ class Settings(BaseSettings):
     min_document_length: int = 100
     max_document_length: int = 50000
 
-    class Config:
-        """Pydantic configuration."""
-
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
     def get_output_path(self) -> Path:
         """Get absolute output directory path."""

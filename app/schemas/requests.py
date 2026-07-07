@@ -5,11 +5,19 @@ Purpose: Define input contracts for API endpoints.
 Responsibility: Validate incoming requests using Pydantic v2.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class DocumentRequest(BaseModel):
     """Request to generate a document."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "request": "Create a project proposal for a Hospital Management System"
+            }
+        }
+    )
 
     request: str = Field(
         ...,
@@ -19,11 +27,10 @@ class DocumentRequest(BaseModel):
         examples=["Create a project proposal for a Hospital Management System"],
     )
 
-    class Config:
-        """Pydantic configuration."""
-
-        json_schema_extra = {
-            "example": {
-                "request": "Create a project proposal for a Hospital Management System"
-            }
-        }
+    @field_validator("request")
+    @classmethod
+    def normalize_request(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not any(character.isalpha() for character in value):
+            raise ValueError("request must contain a meaningful natural-language instruction")
+        return value
