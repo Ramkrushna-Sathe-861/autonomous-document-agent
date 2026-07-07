@@ -1,0 +1,30 @@
+{
+  "metadata": {
+    "name": "Project Proposal Template",
+    "version": "1.0",
+    "description": "Standard template for project proposals",
+    "required_sections": 5
+  },
+  "sections": [
+    {
+      "title": "Executive Summary",
+      "placeholder": "Brief overview of the project, objectives, and expected outcomes"
+    },
+    {
+      "title": "Project Overview",
+      "placeholder": "Detailed description of the project scope and requirements"
+    },
+    {
+      "title": "Methodology",
+      "placeholder": "Approach and methodology for project execution"
+    },
+    {
+      "title": "Timeline & Deliverables",
+      "placeholder": "Project schedule and key deliverables"
+    },
+    {
+      "title": "Budget & Resources",
+      "placeholder": "Budget breakdown and required resources"
+    }
+  ]
+}

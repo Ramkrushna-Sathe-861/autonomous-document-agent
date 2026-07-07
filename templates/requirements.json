@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "name": "Business Requirements Document Template",
+    "version": "1.0",
+    "description": "Standard template for business requirements documents",
+    "required_sections": 6
+  },
+  "sections": [
+    {
+      "title": "Introduction",
+      "placeholder": "Introduction to the business requirements and document purpose"
+    },
+    {
+      "title": "Business Objectives",
+      "placeholder": "Clear statement of business objectives and goals"
+    },
+    {
+      "title": "Functional Requirements",
+      "placeholder": "Detailed functional requirements and use cases"
+    },
+    {
+      "title": "Non-Functional Requirements",
+      "placeholder": "Performance, security, scalability, and other non-functional requirements"
+    },
+    {
+      "title": "Success Criteria",
+      "placeholder": "Metrics and criteria for measuring project success"
+    },
+    {
+      "title": "Constraints & Dependencies",
+      "placeholder": "Any constraints, dependencies, or limitations"
+    }
+  ]
+}
