@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from app.config import get_settings
-from app.orchestrator import AgentOrchestrator
 from app.schemas import DocumentRequest, DocumentResponse
+from app.workflow import AgentOrchestrator
 
 router = APIRouter()
 

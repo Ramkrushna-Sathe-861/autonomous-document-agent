@@ -1,14 +1,14 @@
-"""End-to-end autonomous document generation workflow."""
+"""Planning, execution, reflection, and orchestration in one workflow module."""
 
 import re
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from app.agents import ExecutorAgent, PlannerAgent, ReflectionAgent
 from app.core.exceptions import ReflectionError
 from app.llm import GroqClient
-from app.schemas import DocumentResponse, ExecutorResult
+from app.agents import ExecutorAgent, PlannerAgent, ReflectionAgent
 from app.tools import DocumentTool
+from app.schemas import DocumentResponse, ExecutorResult
 
 
 class AgentOrchestrator:
@@ -28,11 +28,14 @@ class AgentOrchestrator:
 
         if reflection.status == "FAIL":
             try:
-                sections = await self.executor.revise(
+                revised_sections = await self.executor.revise(
                     request, plan, sections, reflection.issues + reflection.suggestions
                 )
-                reflection = await self.reflector.review(request, sections)
-                reflection.revised = True
+                revised_reflection = await self.reflector.review(request, revised_sections)
+                revised_reflection.revised = True
+                if revised_reflection.status == "PASS":
+                    sections = revised_sections
+                reflection = revised_reflection
             except Exception as exc:
                 raise ReflectionError(f"Document recovery pass failed: {exc}") from exc
 
@@ -57,13 +60,7 @@ class AgentOrchestrator:
             generated_at=datetime.now(timezone.utc),
         )
 
-    def _render(
-        self,
-        title: str,
-        assumptions: list[str],
-        sections: list[ExecutorResult],
-        filename: str,
-    ):
+    def _render(self, title: str, assumptions: list[str], sections: list[ExecutorResult], filename: str):
         document = self.documents.create_document(title)
         if assumptions:
             self.documents.add_heading(document, "Planning Assumptions", level=1)

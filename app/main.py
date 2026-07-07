@@ -6,10 +6,10 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.api.routes import router
 from app.config import get_settings
 from app.core import ApplicationError, setup_logging
 from app.schemas import ErrorResponse
+from app.routes import router
 
 settings = get_settings()
 logger = logging.getLogger(__name__)

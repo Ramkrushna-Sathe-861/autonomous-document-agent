@@ -1,4 +1,4 @@
-"""Autonomous planning, execution, and reflection agents."""
+"""Agent roles for planning, execution, and reflection."""
 
 from app.agents.executor import ExecutorAgent
 from app.agents.planner import PlannerAgent

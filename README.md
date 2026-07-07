@@ -86,10 +86,11 @@ pytest -q
 
 ## Architecture and tradeoff
 
-The code uses focused components under `app/agents`, `app/tools`, and
-`app/orchestrator`, with the LLM client injected for testing. A single orchestrated
-agent workflow was chosen over a multi-agent framework: it is easy to explain and
-debug within the assignment's 60-minute constraint, while the planner/executor/reviewer
+The code keeps the important pieces easy to find: `app/routes.py` for the API,
+`app/workflow.py` for orchestration, `app/agents/` for planner/executor/reflection,
+and `app/tools/` for templates, validation, and DOCX rendering. A single orchestrated
+workflow was chosen over a multi-agent framework: it is easy to explain and debug
+within the assignment's 60-minute constraint, while the planner/executor/reviewer
 boundaries remain replaceable. The tradeoff is less dynamic delegation in exchange for
 predictable execution, lower latency, and simpler failure handling.
 
@@ -103,11 +104,11 @@ errors while retaining strict application-side contracts.
 ```text
 app/
   agents/        planner, executor, reflection
-  api/           routes and DOCX download
+  routes.py      routes and DOCX download
   config/        environment settings
   core/          errors and structured logging
   llm/           async Groq client with retry
-  orchestrator/  end-to-end workflow and recovery
+  workflow.py    planner, executor, reflection, recovery
   schemas/       Pydantic API/agent contracts
   tools/         templates, validation, DOCX formatting
 templates/       proposal and requirements structures

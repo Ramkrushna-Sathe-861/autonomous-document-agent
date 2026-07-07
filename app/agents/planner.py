@@ -21,25 +21,7 @@ class PlannerAgent:
 
     async def create_plan(self, request: str) -> ExecutionPlan:
         template_context = self._template_context()
-        schema = json.dumps(ExecutionPlan.model_json_schema(), indent=2)
-        prompt = f"""Create an execution plan for this document request:
-
-{request}
-
-Available document templates:
-{template_context}
-
-Return only one JSON object matching this schema:
-{schema}
-
-Rules:
-- Make one executable content-generation step per final document section.
-- Use 4-8 sections and sequential step_number values starting at 1.
-- Each action should be a short section title; description says what to write.
-- Record reasonable decisions about missing or conflicting details in assumptions.
-- dependencies may reference earlier steps only.
-- total_steps and estimated_sections must equal the number of steps.
-"""
+        prompt = self._build_prompt(request, template_context)
         last_error: Exception | None = None
         for _ in range(self.settings.max_planning_retries + 1):
             try:
@@ -79,3 +61,65 @@ Rules:
         for step in plan.steps:
             if any(dep >= step.step_number or dep < 1 for dep in step.dependencies):
                 raise ValueError("dependencies must reference earlier steps")
+
+    def _build_prompt(self, request: str, template_context: str) -> str:
+        schema = json.dumps(ExecutionPlan.model_json_schema(), indent=2)
+        focus_points = self._request_focus_points(request)
+        focus_block = "\n".join(f"- {point}" for point in focus_points) or "- Use the request itself to infer the important points."
+        return f"""Create an execution plan for this document request:
+
+{request}
+
+Request-driven focus points:
+{focus_block}
+
+Available document templates:
+{template_context}
+
+Return only one JSON object matching this schema:
+{schema}
+
+Rules:
+- Make one executable content-generation step per final document section.
+- Use 4-8 sections and sequential step_number values starting at 1.
+- Make the section titles specific to this request, not generic defaults.
+- Avoid copying template headings unless they truly fit the request.
+- Each action should be a short section title; description should list the concrete points the section must cover.
+- Record reasonable decisions about missing or conflicting details in assumptions.
+- dependencies may reference earlier steps only.
+- total_steps and estimated_sections must equal the number of steps.
+"""
+
+    @staticmethod
+    def _request_focus_points(request: str) -> list[str]:
+        text = request.lower()
+        focus_points: list[str] = []
+
+        keyword_map = [
+            ("migrate", "migration approach, rollback plan, and transition risks"),
+            ("migration", "migration approach, rollback plan, and transition risks"),
+            ("move", "migration approach, rollback plan, and transition risks"),
+            ("moving", "migration approach, rollback plan, and transition risks"),
+            ("transition", "migration approach, rollback plan, and transition risks"),
+            ("budget", "budget, cost categories, and resource allocation"),
+            ("timeline", "timeline, milestones, and delivery sequence"),
+            ("deliverable", "deliverables and acceptance criteria"),
+            ("risk", "risks, dependencies, and mitigation actions"),
+            ("training", "training, adoption, and change management"),
+            ("stakeholder", "stakeholders, owners, and responsibilities"),
+            ("resource", "people, tools, and resource needs"),
+            ("system", "scope, functional capabilities, and integrations"),
+            ("platform", "scope, functional capabilities, and integrations"),
+            ("project plan", "phases, milestones, and execution approach"),
+            ("proposal", "business case, scope, and expected outcomes"),
+            ("technical", "architecture, implementation, and testing approach"),
+            ("rollback", "rollback, contingency, and go-live safeguards"),
+            ("success", "success criteria and measurement"),
+            ("metric", "success criteria and measurement"),
+        ]
+
+        for keyword, point in keyword_map:
+            if keyword in text and point not in focus_points:
+                focus_points.append(point)
+
+        return focus_points[:6]

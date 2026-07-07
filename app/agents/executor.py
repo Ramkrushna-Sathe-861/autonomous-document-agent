@@ -29,8 +29,9 @@ Section goal: {step.description}
 Relevant earlier content:
 {prior or 'This is the first section.'}
 
-Write polished business prose with concrete, internally consistent details. Use plain
-text paragraphs and optional lines beginning with "- " for lists. Do not repeat the
+Write polished business prose with concrete, internally consistent details. Use 2-5
+bullet points when helpful so the section clearly shows the key points for this
+request. Make the bullets specific to the step, not generic filler. Do not repeat the
 section heading and do not wrap the answer in Markdown fences.
 """
             try:
@@ -58,7 +59,6 @@ section heading and do not wrap the answer in Markdown fences.
     async def revise(
         self, request: str, plan: ExecutionPlan, sections: list[ExecutorResult], issues: list[str]
     ) -> list[ExecutorResult]:
-        """Run one bounded recovery pass over the assembled content."""
         prompt = f"""Improve these sections for the original request: {request}
 Issues to fix: {issues}
 Return JSON with a `sections` array. Every item must contain exactly `title` and

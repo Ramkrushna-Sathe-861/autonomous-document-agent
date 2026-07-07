@@ -92,13 +92,13 @@ class GroqClient:
             for attempt in range(1, self.max_retries + 1):
                 try:
                     response = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                    },
+                        f"{self.base_url}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json",
+                        },
                         json=body,
-                )
+                    )
                     if response.status_code in {429, 500, 502, 503, 504}:
                         last_error = LLMError(
                             f"Groq API temporarily unavailable ({response.status_code})"

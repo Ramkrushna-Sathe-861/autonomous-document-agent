@@ -6,9 +6,10 @@ import pytest
 from docx import Document
 from fastapi.testclient import TestClient
 
-from app.api.routes import get_orchestrator
+from app.agents import PlannerAgent
 from app.main import app
-from app.orchestrator import AgentOrchestrator
+from app.routes import get_orchestrator
+from app.workflow import AgentOrchestrator
 
 
 class FakeLLM:
@@ -102,6 +103,60 @@ class RecoveryFakeLLM(FakeLLM):
             "suggestions": [],
             "confidence_score": 0.96,
         }
+
+
+class PromptCaptureLLM:
+    """Capture the planner prompt so we can verify request-specific planning."""
+
+    def __init__(self) -> None:
+        self.prompt = ""
+
+    async def structured_complete(self, prompt: str, **kwargs):
+        self.prompt = prompt
+        return {
+            "document_type": "project plan",
+            "document_title": "Migration Plan",
+            "assumptions": ["Vendor not selected yet."],
+            "total_steps": 3,
+            "steps": [
+                {
+                    "step_number": 1,
+                    "action": "Current State and Scope",
+                    "description": "Describe the current process, scope, and target users.",
+                    "dependencies": [],
+                },
+                {
+                    "step_number": 2,
+                    "action": "Migration and Rollout",
+                    "description": "Explain the migration approach, training, and rollback plan.",
+                    "dependencies": [1],
+                },
+                {
+                    "step_number": 3,
+                    "action": "Budget and Success Criteria",
+                    "description": "Cover cost categories, timeline, and acceptance metrics.",
+                    "dependencies": [1, 2],
+                },
+            ],
+            "estimated_sections": 3,
+        }
+
+
+@pytest.mark.asyncio
+async def test_planner_uses_request_specific_focus_points() -> None:
+    llm = PromptCaptureLLM()
+    planner = PlannerAgent(llm)
+    request = (
+        "Create a technical project plan for moving our 12-person support team from "
+        "spreadsheets to a customer ticketing platform. We need training, a rollback "
+        "plan, budget categories, timeline, and measurable success criteria."
+    )
+
+    await planner.create_plan(request)
+
+    assert "migration approach, rollback plan, and transition risks" in llm.prompt
+    assert "budget, cost categories, and resource allocation" in llm.prompt
+    assert "training, adoption, and change management" in llm.prompt
 
 
 @pytest.mark.asyncio
