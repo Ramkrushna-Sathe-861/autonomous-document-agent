@@ -1,6 +1,7 @@
 """LLM-backed planner that turns a request into an executable task list."""
 
 import json
+from collections.abc import Awaitable, Callable
 
 from pydantic import ValidationError as PydanticValidationError
 
@@ -19,8 +20,19 @@ class PlannerAgent:
         self.settings = get_settings()
         self.templates = TemplateTool()
 
-    async def create_plan(self, request: str) -> ExecutionPlan:
-        template_context = self._template_context()
+    def build_node(self) -> Callable[[dict[str, object]], Awaitable[dict[str, object]]]:
+        """Expose the planner as a LangGraph node."""
+
+        async def node(state: dict[str, object]) -> dict[str, object]:
+            request = state["request"]
+            assert isinstance(request, str)
+            plan = await self.create_plan(request)
+            return {"plan": plan}
+
+        return node
+
+    async def create_plan(self, request: str, template_context: str | None = None) -> ExecutionPlan:
+        template_context = template_context or self._template_context()
         prompt = self._build_prompt(request, template_context)
         last_error: Exception | None = None
         for _ in range(self.settings.max_planning_retries + 1):
@@ -42,12 +54,7 @@ class PlannerAgent:
         raise PlanningError(f"Could not create a valid execution plan: {last_error}")
 
     def _template_context(self) -> str:
-        lines: list[str] = []
-        for name in self.templates.list_templates():
-            template = self.templates.load_template(name)
-            titles = [section["title"] for section in template.get_sections()]
-            lines.append(f"- {name}: {', '.join(titles)}")
-        return "\n".join(lines) or "- No templates available; design an appropriate structure."
+        return self.templates._template_context()
 
     @staticmethod
     def _validate_plan(plan: ExecutionPlan) -> None:

@@ -1,5 +1,7 @@
 """Execute a plan by generating every planned document section."""
 
+from collections.abc import Awaitable, Callable
+
 from app.config import get_settings
 from app.core.exceptions import ExecutionError
 from app.llm import GroqClient
@@ -12,6 +14,19 @@ class ExecutorAgent:
     def __init__(self, llm: GroqClient | None = None) -> None:
         self.llm = llm or GroqClient()
         self.settings = get_settings()
+
+    def build_node(self) -> Callable[[dict[str, object]], Awaitable[dict[str, object]]]:
+        """Expose the executor as a LangGraph node."""
+
+        async def node(state: dict[str, object]) -> dict[str, object]:
+            request = state["request"]
+            assert isinstance(request, str)
+            plan = state.get("plan")
+            assert isinstance(plan, ExecutionPlan)
+            sections = await self.execute(request, plan)
+            return {"sections": sections}
+
+        return node
 
     async def execute(self, request: str, plan: ExecutionPlan) -> list[ExecutorResult]:
         results: list[ExecutorResult] = []

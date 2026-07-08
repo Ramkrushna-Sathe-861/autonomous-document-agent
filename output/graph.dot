@@ -1,0 +1,19 @@
+digraph workflow {
+	rankdir=LR
+	template_lookup [label="Template Lookup"]
+	planner [label="Planner Agent"]
+	executor [label="Executor Agent"]
+	validate [label=Validation]
+	reflector [label="Reflection Agent"]
+	revise [label=Revise]
+	render_document [label="Render Document"]
+	render [label="Render Response"]
+	template_lookup -> planner
+	planner -> executor
+	executor -> validate
+	validate -> reflector
+	reflector -> revise
+	reflector -> render
+	revise -> validate
+	render_document -> render
+}

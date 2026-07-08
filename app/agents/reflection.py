@@ -1,6 +1,7 @@
 """Deterministic and semantic self-check for generated documents."""
 
 import json
+from collections.abc import Awaitable, Callable
 
 from app.config import get_settings
 from app.llm import GroqClient
@@ -16,13 +17,32 @@ class ReflectionAgent:
         self.settings = get_settings()
         self.validator = ValidationTool()
 
-    async def review(self, request: str, sections: list[ExecutorResult]) -> ReflectionResult:
+    def build_node(self) -> Callable[[dict[str, object]], Awaitable[dict[str, object]]]:
+        """Expose the reflection agent as a LangGraph node."""
+
+        async def node(state: dict[str, object]) -> dict[str, object]:
+            request = state["request"]
+            assert isinstance(request, str)
+            sections = state.get("sections", [])
+            assert isinstance(sections, list)
+            validation_results = state.get("validation_results")
+            reflection = await self.review(request, sections, validation_results=validation_results)
+            return {"reflection": reflection}
+
+        return node
+
+    async def review(
+        self,
+        request: str,
+        sections: list[ExecutorResult],
+        validation_results: dict | None = None,
+    ) -> ReflectionResult:
         raw_sections = [
             {"title": section.section_title, "content": section.content}
             for section in sections
         ]
         full_text = "\n\n".join(item["content"] for item in raw_sections)
-        checks = self.validator.validate_all(full_text, raw_sections)
+        checks = validation_results or self.validator.validate_all(full_text, raw_sections)
         if not checks["is_valid"]:
             return ReflectionResult(
                 status="FAIL",

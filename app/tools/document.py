@@ -1,6 +1,8 @@
 """Document generation tool using python-docx."""
 
 import logging
+import re
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +12,7 @@ from docx.shared import Pt, RGBColor
 
 from app.config import get_settings
 from app.core.exceptions import DocumentGenerationError
+from app.schemas import ExecutionPlan, ExecutorResult
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +24,20 @@ class DocumentTool:
         self.settings = get_settings()
         self.output_dir = self.settings.get_output_path()
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    def build_node(self) -> Callable[[dict[str, object]], Awaitable[dict[str, object]]]:
+        """Expose document rendering as a LangGraph node."""
+
+        async def node(state: dict[str, object]) -> dict[str, object]:
+            plan = state.get("plan")
+            assert isinstance(plan, ExecutionPlan)
+            sections = state.get("sections", [])
+            assert isinstance(sections, list)
+            filename = self._filename(plan.document_title)
+            path = self.render_document(plan.document_title, plan.assumptions, sections, filename)
+            return {"document_path": str(path)}
+
+        return node
 
     def create_document(self, title: str, author: str = "", company: str = "") -> Document:
         try:
@@ -116,6 +133,47 @@ class DocumentTool:
         except Exception as exc:
             logger.error("Failed to add page break: %s", exc)
             raise DocumentGenerationError(f"Page break addition failed: {exc}") from exc
+
+    def render_document(self, title: str, assumptions: list[str], sections: list[ExecutorResult], filename: str) -> Path:
+        document = self.create_document(title)
+        if assumptions:
+            self.add_heading(document, "Planning Assumptions", level=1)
+            self.add_bulleted_list(document, assumptions)
+        for section in sections:
+            self.add_heading(document, section.section_title, level=1)
+            self._add_content(document, section.content)
+        return self.save_document(document, filename)
+
+    def _add_content(self, document: Document, content: str) -> None:
+        paragraphs: list[str] = []
+        bullets: list[str] = []
+
+        def flush() -> None:
+            if paragraphs:
+                self.add_paragraph(document, "\n".join(paragraphs))
+                paragraphs.clear()
+            if bullets:
+                self.add_bulleted_list(document, bullets.copy())
+                bullets.clear()
+
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(("- ", "* ")):
+                if paragraphs:
+                    flush()
+                bullets.append(stripped[2:].strip())
+            elif not stripped:
+                flush()
+            else:
+                if bullets:
+                    flush()
+                paragraphs.append(stripped)
+        flush()
+
+    @staticmethod
+    def _filename(title: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:50]
+        return f"{slug or 'document'}-{__import__('uuid').uuid4().hex[:8]}.docx"
 
     def save_document(self, doc: Document, filename: str) -> Path:
         try:

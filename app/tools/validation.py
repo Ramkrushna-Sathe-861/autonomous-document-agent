@@ -1,6 +1,7 @@
 """Validation tool for content quality checks."""
 
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any, Optional
 
 from app.config import get_settings
@@ -13,6 +14,23 @@ class ValidationTool:
 
     def __init__(self):
         self.settings = get_settings()
+
+    def build_node(self) -> Callable[[dict[str, object]], Awaitable[dict[str, object]]]:
+        """Expose content validation as a LangGraph node."""
+
+        async def node(state: dict[str, object]) -> dict[str, object]:
+            sections = state.get("sections", [])
+            assert isinstance(sections, list)
+            raw_sections = [
+                {"title": section.section_title, "content": section.content}
+                for section in sections
+                if hasattr(section, "section_title") and hasattr(section, "content")
+            ]
+            content = "\n\n".join(section["content"] for section in raw_sections)
+            validation_results = self.validate_all(content, raw_sections)
+            return {"validation_results": validation_results}
+
+        return node
 
     def validate_content_length(self, content: str) -> tuple[bool, Optional[str]]:
         content_length = len(content)

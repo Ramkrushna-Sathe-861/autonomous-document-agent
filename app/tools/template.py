@@ -2,6 +2,7 @@
 
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,24 @@ class TemplateTool:
         self.templates_dir = self.settings.get_templates_path()
         self.templates_dir.mkdir(parents=True, exist_ok=True)
         self._cache: dict[str, Template] = {}
+
+    def build_node(self) -> Callable[[dict[str, object]], Awaitable[dict[str, object]]]:
+        """Expose template lookup as a LangGraph node."""
+
+        async def node(state: dict[str, object]) -> dict[str, object]:
+            request = state.get("request")
+            assert isinstance(request, str)
+            return {"template_context": self._template_context()}
+
+        return node
+
+    def _template_context(self) -> str:
+        lines: list[str] = []
+        for name in self.list_templates():
+            template = self.load_template(name)
+            titles = [section["title"] for section in template.get_sections()]
+            lines.append(f"- {name}: {', '.join(titles)}")
+        return "\n".join(lines) or "- No templates available; design an appropriate structure."
 
     def load_template(self, template_name: str) -> Template:
         if template_name in self._cache:
